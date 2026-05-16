@@ -111,19 +111,12 @@ export default function IconSelector() {
           ? 'border-main shadow-[0_0_0_4px_rgba(111,207,151,0.25)]'
           : 'border-transparent hover:border-slate-300'
         }`}
+      onClick={() => {
+        setSelectedIcon(item);
+        if (inDrawer) setOpen(false);
+      }}
     >
-      <input
-        type="radio"
-        name="icon-selector"
-        value={item.icon}
-        aria-label={item.label}
-        checked={selectedIcon.value === item.value}
-        onChange={() => {
-          setSelectedIcon(item);
-          if (inDrawer) setOpen(false);
-        }}
-        className="sr-only"
-      />
+
       <span aria-hidden="true">{item.icon}</span>
       {selectedIcon.value === item.value && inDrawer && (
         <span className="absolute -top-1 -right-1 w-4 h-4 bg-main rounded-full flex items-center justify-center">
@@ -146,16 +139,18 @@ export default function IconSelector() {
         <div className="flex flex-wrap items-center justify-center gap-3">
           {visible.map(item => renderLabel(item))}
         </div>
+        <input name='icon-selector' value={selectedIcon.icon} className='sr-only' readOnly />
 
         {/* Trigger */}
         <Drawer.Trigger asChild>
           <button
             type="button"
             className="flex items-center gap-1.5 text-xs font-semibold text-secondary hover:text-accent transition-colors"
+            onClick={(e) => e.currentTarget.blur()}
           >
             {selectedItem && !visible.includes(selectedItem) && (
               <span className="text-base relative flex cursor-pointer items-center justify-center rounded-full border-2 bg-white  transition-all duration-200 h-14 w-14">{selectedItem.icon}</span>
-              
+
             )}
             Mostrar más
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -174,6 +169,9 @@ export default function IconSelector() {
             <Drawer.Title className="font-bold text-accent text-base">
               Elige tu avatar
             </Drawer.Title>
+            <Drawer.Description className="sr-only">
+              Selecciona un avatar de la lista de opciones
+            </Drawer.Description>
             <Drawer.Close asChild>
               <button
                 type="button"
