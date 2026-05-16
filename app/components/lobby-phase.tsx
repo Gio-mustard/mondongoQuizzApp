@@ -1,8 +1,10 @@
 'use client';
 
 import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { Button } from "./buttons";
 import { clearPlayerCookie, outQuiz } from "../actions/quiz";
+import { soundManager } from "../utils/soundManager";
 
 interface LobbyPhaseProps {
   quizName: string;
@@ -16,7 +18,15 @@ interface LobbyPhaseProps {
  */
 export default function LobbyPhase({ quizName, username, participants }: LobbyPhaseProps) {
   const count = participants.length;
-  const router = useRouter()
+  const router = useRouter();
+  const prevCount = useRef(count);
+
+  useEffect(() => {
+    if (count > prevCount.current) {
+      soundManager.play('join');
+    }
+    prevCount.current = count;
+  }, [count]);
 
   return (
     <main className="flex flex-col items-center p-8 flex-1 gap-6">

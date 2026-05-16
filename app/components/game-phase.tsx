@@ -1,7 +1,9 @@
 'use client';
 
 import type { SafeQuestion } from '@/app/types';
+import { useEffect } from 'react';
 import { MAX_SECONDS_PER_QUESTION } from '../constants';
+import { soundManager } from '../utils/soundManager';
 
 
 const OPTION_COLORS = [
@@ -43,6 +45,16 @@ export default function GamePhase({
   const progress = (timeLeft / MAX_SECONDS_PER_QUESTION) * 100;
   const offset = circumference - (circumference * progress / 100);
   const showResult = answerResult !== null;
+
+  useEffect(() => {
+    if (answerResult !== null) {
+      if (answerResult.correct) {
+        soundManager.play('correct');
+      } else {
+        soundManager.play('incorrect');
+      }
+    }
+  }, [answerResult]);
 
   return (
     <main className="flex flex-col p-6 md:p-8 flex-1">
@@ -106,7 +118,12 @@ export default function GamePhase({
           return (
             <button
               key={i}
-              onClick={() => !showResult && !isSubmitting && onSubmit(i)}
+              onClick={() => {
+                if (!showResult && !isSubmitting) {
+                  soundManager.play('click');
+                  onSubmit(i);
+                }
+              }}
               disabled={showResult || isSubmitting}
               className={`p-6 rounded-xl font-bold text-lg md:text-xl transition-all duration-300 transform hover:scale-[1.02] disabled:cursor-not-allowed ${buttonStyle}`}
             >

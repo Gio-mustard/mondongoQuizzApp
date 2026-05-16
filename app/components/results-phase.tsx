@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from './buttons';
+import { soundManager } from '../utils/soundManager';
 
 interface LeaderboardEntry {
   username: string;
@@ -50,6 +51,7 @@ export default function ResultsPhase({
   ];
 
   useEffect(() => {
+    soundManager.play('game-over');
     const t = setTimeout(() => setBarsReady(true), 80);
     return () => clearTimeout(t);
   }, []);

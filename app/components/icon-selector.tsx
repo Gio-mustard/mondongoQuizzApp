@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Drawer } from 'vaul';
+import { soundManager } from '../utils/soundManager';
 
 const iconTemplates = [
   { value: 'fox', label: 'Fox', icon: '🦊' },
@@ -112,6 +113,7 @@ export default function IconSelector() {
           : 'border-transparent hover:border-slate-300'
         }`}
       onClick={() => {
+        soundManager.play('click');
         setSelectedIcon(item);
         if (inDrawer) setOpen(false);
       }}
