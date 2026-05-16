@@ -10,18 +10,20 @@ const DB_NAME = "mondongo";
 /**
  * Crea un nuevo quiz en la base de datos con un código de acceso numérico de 6 dígitos único.
  */
-export async function createQuiz(password: string, name: string, questions: Question[]): Promise<{ success: boolean; code: number }> {
+export async function createQuiz(password: string, name: string, questions: Question[], code: number): Promise<{ success: boolean; code: number }> {
   await assertAdmin(password);
 
   const repo = await MongoRepository.create(DB_NAME);
 
-  let code: number;
-  let exists = true;
-  do {
-    code = Math.floor(100000 + Math.random() * 900000);
-    const found = await repo.findOne("quizzes", { code });
-    exists = found !== null;
-  } while (exists);
+
+
+
+
+  const found = await repo.findOne("quizzes", { code: code });
+  if (found) {
+    throw Error(`Ya existe un quiz con el codigo ${code}`)
+  }
+
 
   const quiz = {
     name,
@@ -33,7 +35,7 @@ export async function createQuiz(password: string, name: string, questions: Ques
   };
 
   await repo.insertOne("quizzes", quiz);
-  return { success: true, code };
+  return { success: true, code: code };
 }
 
 /**
@@ -250,7 +252,7 @@ export async function getSessionStatus(sessionId: string): Promise<{ status: Qui
   if (!session || session.status === 'finished') {
     return null;
   }
-  
+
   return {
     status: session.status as QuizSession["status"],
     participants: (session.participants ?? []).map((p: Participant) => ({

@@ -7,6 +7,7 @@ import { createQuiz, deleteQuiz, getQuizzes, getActiveSessions, startSession } f
 import type { Question } from '@/app/types';
 import { Button } from './buttons';
 import { Drawer } from 'vaul';
+import Input from './input';
 
 interface QuizItem {
   _id: string;
@@ -120,9 +121,9 @@ function Quiz({ quiz, handleDeleteQuiz }: { quiz: QuizItem, handleDeleteQuiz: (q
                         </div>
                         <span className="text-2xl text-accent">→</span>
                       </Button>
-                      
+
                       <div className="h-px bg-gray-200 my-2" />
-                      
+
                       {quiz.sessions.map((session, i) => (
                         <Button
                           key={session._id}
@@ -136,13 +137,12 @@ function Quiz({ quiz, handleDeleteQuiz }: { quiz: QuizItem, handleDeleteQuiz: (q
                             <p className="text-xs text-gray-500 mt-1">
                               {new Date(session.createdAt).toLocaleString()} • {session.participantCount} jugadores
                             </p>
-                            <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-bold ${
-                              session.status === 'in_progress' ? 'bg-amber-100 text-amber-800' :
-                              session.status === 'finished' ? 'bg-green-100 text-green-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {session.status === 'in_progress' ? 'EN PROGRESO' : 
-                               session.status === 'finished' ? 'FINALIZADA' : 'LOBBY'}
+                            <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-bold ${session.status === 'in_progress' ? 'bg-amber-100 text-amber-800' :
+                                session.status === 'finished' ? 'bg-green-100 text-green-800' :
+                                  'bg-gray-100 text-gray-800'
+                              }`}>
+                              {session.status === 'in_progress' ? 'EN PROGRESO' :
+                                session.status === 'finished' ? 'FINALIZADA' : 'LOBBY'}
                             </span>
                           </div>
                           <span className="text-inherit ">→</span>
@@ -180,7 +180,7 @@ export default function AdminPanel() {
   const [isLoadingQuizzes, setIsLoadingQuizzes] = useState(true);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
 
-  const [quizName, setQuizName] = useState('');
+  const [formKey, setFormKey] = useState(0);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -276,10 +276,12 @@ export default function AdminPanel() {
   };
 
 
-  const handleCreateQuiz = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateQuiz = async (formData: FormData) => {
+    const qName = formData.get('quiz-name') as string;
+    const qCodeRaw = formData.get('quiz-code') as string;
+    const qCode = parseInt(qCodeRaw?.replace(/\D/g, '') || '0', 10);
 
-    if (!quizName.trim()) {
+    if (!qName?.trim()) {
       setErrorMessage('Ingresa un nombre para el quiz');
       setTimeout(() => setErrorMessage(''), 3000);
       return;
@@ -291,11 +293,17 @@ export default function AdminPanel() {
       return;
     }
 
+    if (qCode < 1 || isNaN(qCode)) {
+      setErrorMessage("Necesitas ingresar un codigo numerico mayor a 0");
+      setTimeout(() => setErrorMessage(''), 3000)
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const result = await createQuiz(password, quizName, questions);
-      setSuccessMessage(`✓ Quiz "${quizName}" creado con código: ${result.code}`);
-      setQuizName('');
+      const result = await createQuiz(password, qName, questions, qCode);
+      setSuccessMessage(`✓ Quiz "${qName}" creado con código: ${result.code}`);
+      setFormKey(prev => prev + 1);
       setQuestions([]);
       loadQuizzes();
       setTimeout(() => setSuccessMessage(''), 5000);
@@ -401,7 +409,7 @@ export default function AdminPanel() {
                         <button
                           onClick={() => {
                             console.log(session)
-                            
+
                             router.push(`/admin/${session.quizSlug}`);
                           }}
                           className="bg-secondary hover:bg-accent text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 text-sm whitespace-nowrap"
@@ -431,19 +439,31 @@ export default function AdminPanel() {
             <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 sticky top-8">
               <h2 className="text-2xl font-bold mb-6 text-[#1a1a1a]">Crear Nuevo Quiz</h2>
 
-              <form onSubmit={handleCreateQuiz} className="space-y-5">
-                <div>
+              <form key={formKey} action={handleCreateQuiz} className="space-y-5">
+                <div className='grid grid-cols-2 gap-8'>
+
+                <div className='w-full'>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Codigo del Quiz
+                  </label>
+                  <Input
+                    name="quiz-code"
+                    placeholder="Ej: 012-345-678"
+                    type="text"
+                    className='text-left bg-gray-100 px-4 py-2 w-full'
+                    />
+                </div>
+                <div className='w-full'>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Nombre del Quiz
                   </label>
-                  <input
+                  <Input 
+                    name="quiz-name" 
+                    placeholder="Ej: Quiz de Biología" 
                     type="text"
-                    value={quizName}
-                    onChange={(e) => setQuizName(e.target.value)}
-                    disabled={isSubmitting}
-                    placeholder="Ej: Quiz de Biología"
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-[#4CAF50] focus:outline-none transition-colors duration-200 disabled:opacity-50"
-                  />
+                    className='text-left bg-gray-100 px-4 py-2 w-full'
+                    />
+                </div>
                 </div>
 
                 {/* Questions Added */}
@@ -510,7 +530,7 @@ export default function AdminPanel() {
 
                   <div className="space-y-2">
                     {currentQuestion.options.map((opt, i) => (
-                      <div key={i} className="flex items-center gap-2">
+                      <div key={i} className="flex items-center gap-2 ">
                         <input
                           type="radio"
                           name="correctAnswer"
@@ -519,6 +539,7 @@ export default function AdminPanel() {
                           className="accent-[#4CAF50]"
                         />
                         <input
+                          
                           type="text"
                           value={opt}
                           onChange={(e) => handleOptionChange(i, e.target.value)}
@@ -565,9 +586,9 @@ export default function AdminPanel() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {quizzes.map((quiz,index) => (
+                  {quizzes.map((quiz, index) => (
                     <Quiz
-                      key={quiz._id+index}
+                      key={quiz._id + index}
                       quiz={quiz}
                       handleDeleteQuiz={handleDeleteQuiz}
                     />
