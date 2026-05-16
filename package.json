@@ -13,7 +13,10 @@
     "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "swr": "^2.4.1"
+    "swr": "^2.4.1",
+    "tailwind-merge": "^3.6.0",
+    "vaul": "^1.1.2",
+    "vaul-base": "^1.0.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

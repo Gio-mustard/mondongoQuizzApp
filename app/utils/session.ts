@@ -1,5 +1,3 @@
-'use server';
-
 import { Database } from "./database";
 
 

@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useAdminAuth } from '@/app/context/adminAuth';
-import Input from './input';
 
 export default function AdminLogin() {
   const [password, setPassword] = useState('');
@@ -10,22 +9,20 @@ export default function AdminLogin() {
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAdminAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
-    // Simular pequeño delay para UX
-    setTimeout(() => {
-      if (login(password)) {
-        setPassword('');
-        setIsLoading(false);
-      } else {
-        setError('Contraseña incorrecta');
-        setPassword('');
-        setIsLoading(false);
-      }
-    }, 300);
+    const success = await login(password);
+
+    if (success) {
+      setPassword('');
+    } else {
+      setError('Contraseña incorrecta');
+      setPassword('');
+    }
+    setIsLoading(false);
   };
 
   return (

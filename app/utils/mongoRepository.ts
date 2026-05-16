@@ -1,4 +1,3 @@
-'use server'
 
 import {
     Db,
@@ -24,7 +23,7 @@ import clientPromise, { Database } from "./database";
  *   const repo = await MongoRepository.create<MiTipo>("mi_base_de_datos");
  *   const doc  = await repo.findOne("mi_coleccion", { campo: "valor" });
  */
-export class MongoRepository<T extends Document = Document> implements Database {
+export class  MongoRepository<T extends Document = Document> implements Database {
     connection: Db;
 
     private constructor(db: Db) {

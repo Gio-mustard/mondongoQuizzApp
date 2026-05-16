@@ -1,39 +1,45 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect } from 'react';
+import { verifyAdminPassword } from '@/app/actions/auth';
 
 interface AdminAuthContextType {
   isAuthenticated: boolean;
   isHydrated: boolean;
-  login: (password: string) => boolean;
+  password: string;
+  login: (password: string) => Promise<boolean>;
   logout: () => void;
 }
 
-
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
-/*
-El auth de los administradores DEBERIA de manejarse como server actions pero por simplicidad ( y porque ya lo hice asi y me da flojera cambiarlo) quedara como deuda tecnica.
-*/
+
+/**
+ * Proveedor de contexto de autenticación para el panel de administración.
+ * Persiste la sesión en localStorage y valida la contraseña contra el servidor.
+ */
 export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [password, setPassword] = useState('');
 
   useEffect(() => {
-    
     const savedAuth = localStorage.getItem('adminAuth');
-    if (savedAuth === 'true') {
+    const savedPw = localStorage.getItem('adminPw');
+    if (savedAuth === 'true' && savedPw) {
       setIsAuthenticated(true);
+      setPassword(savedPw);
     }
     setIsHydrated(true);
   }, []);
 
-  const login = (password: string): boolean => {
-    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || '';
-    
-    if (password === adminPassword) {
+  const login = async (pw: string): Promise<boolean> => {
+    const valid = await verifyAdminPassword(pw);
+
+    if (valid) {
       setIsAuthenticated(true);
+      setPassword(pw);
       localStorage.setItem('adminAuth', 'true');
-      
+      localStorage.setItem('adminPw', pw);
       return true;
     }
     return false;
@@ -41,24 +47,30 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     setIsAuthenticated(false);
+    setPassword('');
     localStorage.removeItem('adminAuth');
+    localStorage.removeItem('adminPw');
   };
 
   if (!isHydrated) {
     return (
-      <AdminAuthContext.Provider value={{ isAuthenticated: false, isHydrated: false, login, logout }}>
+      <AdminAuthContext.Provider value={{ isAuthenticated: false, isHydrated: false, password: '', login, logout }}>
         {children}
       </AdminAuthContext.Provider>
     );
   }
 
   return (
-    <AdminAuthContext.Provider value={{ isAuthenticated, isHydrated, login, logout }}>
+    <AdminAuthContext.Provider value={{ isAuthenticated, isHydrated, password, login, logout }}>
       {children}
     </AdminAuthContext.Provider>
   );
 }
 
+/**
+ * Hook para acceder al contexto de autenticación del admin.
+ * Debe usarse dentro de un AdminAuthProvider.
+ */
 export function useAdminAuth() {
   const context = useContext(AdminAuthContext);
   if (context === undefined) {

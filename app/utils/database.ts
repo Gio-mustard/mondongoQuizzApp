@@ -1,4 +1,3 @@
-'use server'
 export interface Database {
     connection: any;
     insertOne(collection: string, document: any): Promise<any>;
