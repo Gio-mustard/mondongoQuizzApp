@@ -97,17 +97,17 @@ const iconTemplates = [
 ];
 
 export default function IconSelector() {
-  const [selectedIcon, setSelectedIcon] = useState(iconTemplates[0].value);
+  const [selectedIcon, setSelectedIcon] = useState(iconTemplates[0]);
   const [open, setOpen] = useState(false);
 
   const visible = iconTemplates.slice(0, 5);
-  const selectedItem = iconTemplates.find(i => i.value === selectedIcon);
+  const selectedItem = iconTemplates.find(i => i.value === selectedIcon.value);
 
   const renderLabel = (item: typeof iconTemplates[number], inDrawer = false) => (
     <label
       key={item.value}
       className={`relative flex cursor-pointer items-center justify-center rounded-full border-2 bg-white text-2xl transition-all duration-200 ${inDrawer ? 'h-14 w-14' : 'h-16 w-16'
-        } ${selectedIcon === item.value
+        } ${selectedIcon.value === item.value
           ? 'border-main shadow-[0_0_0_4px_rgba(111,207,151,0.25)]'
           : 'border-transparent hover:border-slate-300'
         }`}
@@ -117,15 +117,15 @@ export default function IconSelector() {
         name="icon-selector"
         value={item.icon}
         aria-label={item.label}
-        checked={selectedIcon === item.value}
+        checked={selectedIcon.value === item.value}
         onChange={() => {
-          setSelectedIcon(item.value);
+          setSelectedIcon(item);
           if (inDrawer) setOpen(false);
         }}
         className="sr-only"
       />
       <span aria-hidden="true">{item.icon}</span>
-      {selectedIcon === item.value && inDrawer && (
+      {selectedIcon.value === item.value && inDrawer && (
         <span className="absolute -top-1 -right-1 w-4 h-4 bg-main rounded-full flex items-center justify-center">
           <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
             <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />

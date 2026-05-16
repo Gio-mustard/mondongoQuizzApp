@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminAuth } from '@/app/context/adminAuth';
-import { createQuiz, deleteQuiz, getQuizzes, getActiveSessions, startSession, createQuizFromJson } from '@/app/actions/quiz';
+import { createQuiz, deleteQuiz, getQuizzes, getActiveSessions, startSession, createQuizFromJson, dropSession } from '@/app/actions/quiz';
 import type { Question } from '@/app/types';
 import { Button } from './buttons';
 import { Drawer } from 'vaul';
@@ -297,7 +297,7 @@ export default function AdminPanel() {
     }
 
     if (qCode < 1 || isNaN(qCode)) {
-      setErrorMessage("Necesitas ingresar un codigo numerico mayor a 0");
+      setErrorMessage("Necesitas ingresar un código numérico mayor a 0");
       setTimeout(() => setErrorMessage(''), 3000)
       return;
     }
@@ -371,6 +371,18 @@ export default function AdminPanel() {
     }
   };
 
+  const handleDeleteSession = async (sessionId:string)=>{
+    try{
+      if (!await dropSession(password,sessionId)){
+        throw Error("")
+      }
+    }
+    catch{
+      setErrorMessage('Error al eliminar la sesión');
+      setTimeout(()=>{setErrorMessage('')},3000)
+    }
+  }
+
   const optionColors = ['bg-red-100 border-red-300', 'bg-blue-100 border-blue-300', 'bg-yellow-100 border-yellow-300', 'bg-green-100 border-green-300'];
 
   return (
@@ -437,7 +449,7 @@ export default function AdminPanel() {
                     </div>
                     <div className="flex items-center gap-2">
                       {session.status === 'in_progress' && (
-                        <button
+                        <Button
                           onClick={() => {
                             console.log(session)
 
@@ -446,16 +458,19 @@ export default function AdminPanel() {
                           className="bg-secondary hover:bg-accent text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 text-sm whitespace-nowrap"
                         >
                           Ver en vivo
-                        </button>
+                        </Button>
                       )}
                       {session.status === 'lobby' && (
-                        <button
+                        <Button
                           onClick={() => handleStartSession(session._id)}
-                          className="bg-[#4CAF50] hover:bg-[#45a049] text-white font-bold py-3 px-8 rounded-lg transition-colors duration-200 whitespace-nowrap"
+                          className="bg-[#4CAF50] hover:bg-[#45a049] text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 whitespace-nowrap text-sm"
                         >
                           Iniciar Quiz
-                        </button>
+                        </Button>
                       )}
+                      <Button onClick={()=>handleDeleteSession(session._id)} className='bg-[#af4c4c] hover:bg-[#a04545] text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 whitespace-nowrap text-sm'>
+                        Eliminar
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -492,7 +507,7 @@ export default function AdminPanel() {
 
                 <div className='w-full'>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Codigo del Quiz
+                    Código del Quiz
                   </label>
                   <Input
                     name="quiz-code"

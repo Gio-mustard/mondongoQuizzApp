@@ -1,6 +1,7 @@
 import { Button } from "./components/buttons";
 import IconSelector from "./components/icon-selector";
 import Input from "./components/input";
+import InteractiveCodeInput from "./components/interactive-code-input";
 import { joinQuiz } from "./actions/quiz";
 import { redirect} from "next/navigation";
 
@@ -49,8 +50,7 @@ export default async function Home({searchParams}:{
           {decodeURIComponent(error)}
         </div>
       )}
-
-      <Input name="quiz-code" placeholder='000-000' type="text" initialValue={code ?? ""} />
+      <InteractiveCodeInput initialValue={code ?? ""} />
       <Input name="username" placeholder='Tu nombre' />
       <IconSelector />
       <div className="h-full flex items-end">

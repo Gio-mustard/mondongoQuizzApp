@@ -107,7 +107,7 @@ export default function QuizClient({ sessionId, username, icon, initialStatus, q
 
     if (result.success) {
       setAnswerResult({ correct: result.correct!, correctAnswer: result.correctAnswer! });
-      if (result.correct) setScore(prev => prev + 1);
+      if (result.correct) setScore(result.newScore??0);
 
       setTimeout(() => {
         if (currentIndex + 1 >= questions.length) {

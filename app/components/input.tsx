@@ -8,37 +8,41 @@ export default function Input({
     name,
     placeholder,
     initialValue = '',
-    className
+    className,
+    onChange
 }: {
     type?: string;
     name: string;
     placeholder: string;
     initialValue?:string;
     className?: string;
+    onChange?: (value: string) => void;
 }) {
 
     const [value, setValue] = useState(initialValue);
 
     const handleChange = (input: string) => {
 
-        // Solo aplicar formato especial cuando name === "quiz-code"
+        
         if (name === "quiz-code") {
 
-            // Elimina todo lo que no sea número
+        
             const limpio = input.replace(/\D/g, "");
 
-            // Agrega "-" cada 3 caracteres
+        
             const formateado = limpio
                 .replace(/(.{3})/g, "$1-")
                 .replace(/-$/, "");
 
             setValue(formateado);
+            if (onChange) onChange(formateado);
 
             return;
         }
 
-        // comportamiento normal
+        
         setValue(input);
+        if (onChange) onChange(input);
     };
 
     return (

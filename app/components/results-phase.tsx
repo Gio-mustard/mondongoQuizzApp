@@ -134,7 +134,7 @@ export default function ResultsPhase({
 
                   {/* Score */}
                   <span className={`text-sm font-black tabular-nums shrink-0 ${isMe ? 'text-accent' : 'text-gray-400'}`}>
-                    {player.score * 1000}
+                    {player.score}
                   </span>
                 </div>
               </div>
@@ -163,7 +163,7 @@ export default function ResultsPhase({
             </div>
             {playerEntry && (
               <span className="text-white font-black text-base">
-                {playerEntry.score * 1000} pts
+                {playerEntry.score} pts
               </span>
             )}
           </div>

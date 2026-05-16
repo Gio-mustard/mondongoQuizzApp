@@ -4,6 +4,7 @@ import { MongoRepository } from "@/app/utils/mongoRepository";
 import { assertAdmin } from "./auth";
 import { cookies } from "next/headers";
 import type { Question, Quiz, QuizSession, SafeQuestion, Participant, PlayerAnswer } from "@/app/types";
+import { UpdateFilter } from "mongodb";
 
 const DB_NAME = "mondongo";
 
@@ -21,7 +22,7 @@ export async function createQuiz(password: string, name: string, questions: Ques
 
   const found = await repo.findOne("quizzes", { code: code });
   if (found) {
-    throw Error(`Ya existe un quiz con el codigo ${code}`)
+    throw Error(`Ya existe un quiz con el código ${code}`)
   }
 
 
@@ -36,6 +37,18 @@ export async function createQuiz(password: string, name: string, questions: Ques
 
   await repo.insertOne("quizzes", quiz);
   return { success: true, code: code };
+}
+
+/**
+ * Verifica si un quiz existe dado su código.
+ */
+export async function checkQuizExists(codeRaw: string): Promise<boolean> {
+  const code = parseInt(codeRaw.replace(/\D/g, ''), 10);
+  if (isNaN(code) || code < 1) return false;
+  
+  const repo = await MongoRepository.create(DB_NAME);
+  const quiz = await repo.findOne("quizzes", { code, active: true });
+  return !!quiz;
 }
 
 /**
@@ -120,7 +133,20 @@ export async function startSession(password: string, sessionId: string): Promise
 
   return { success: true };
 }
+export async function dropSession(password:string,sessionId:string):Promise<{success:boolean}>{
+  await assertAdmin(password);
+  const repo = await MongoRepository.create(DB_NAME);
+  const { ObjectId } = await import("mongodb");
 
+  const session = await repo.findOne('quiz_sessions',{_id: new ObjectId(sessionId)})
+  console.log('----------si________')
+  console.log(session)
+  if (!session) return {success:false}
+
+  await repo.deleteOne("quiz_sessions",{_id:new ObjectId(sessionId)})
+  console.log('----------se borro -------')
+  return {success:true};
+}
 /**
  * Retorna todas las sesiones que están actualmente en estado "lobby" o "in_progress".
  */
@@ -170,18 +196,31 @@ export async function joinQuiz(code: number, username: string, icon: string): Pr
   }) as (QuizSession & { _id: { toString(): string } }) | null;
 
   if (session) {
+    const { ObjectId } = await import("mongodb");
+
     const existingParticipant = session.participants?.find(
       (p: Participant) => p.username === username
     );
-
+    const sessionId = session._id.toString();
+    const cookieStore = await cookies();
+    cookieStore.set("quiz_player", JSON.stringify({ sessionId, username, icon }), {
+      httpOnly: true,
+      path: "/",
+      maxAge: 60 * 60 * 2,
+    });
     if (existingParticipant) {
-      const sessionId = session._id.toString();
-      const cookieStore = await cookies();
-      cookieStore.set("quiz_player", JSON.stringify({ sessionId, username, icon }), {
-        httpOnly: true,
-        path: "/",
-        maxAge: 60 * 60 * 2,
-      });
+      await repo.updateOne(
+        "quiz_sessions",
+        { 
+          _id: new ObjectId(session._id.toString()),
+          "participants.username":existingParticipant.username
+         },
+        {
+          $set:{
+            "participants.$.icon":icon
+          }
+        }
+      )
 
       return { success: true, slug: quiz.slug };
     }
@@ -190,7 +229,6 @@ export async function joinQuiz(code: number, username: string, icon: string): Pr
       return { success: false, error: "El quiz ya está en progreso, no puedes unirte" };
     }
 
-    const { ObjectId } = await import("mongodb");
     await repo.updateOne(
       "quiz_sessions",
       { _id: new ObjectId(session._id.toString()) },
@@ -208,13 +246,7 @@ export async function joinQuiz(code: number, username: string, icon: string): Pr
       } as any
     );
 
-    const sessionId = session._id.toString();
-    const cookieStore = await cookies();
-    cookieStore.set("quiz_player", JSON.stringify({ sessionId, username, icon }), {
-      httpOnly: true,
-      path: "/",
-      maxAge: 60 * 60 * 2,
-    });
+
 
     return { success: true, slug: quiz.slug };
   }
@@ -308,7 +340,7 @@ export async function submitAnswer(
   questionIndex: number,
   selectedOption: number,
   timeMs: number
-): Promise<{ success: boolean; correct?: boolean; correctAnswer?: number; error?: string }> {
+): Promise<{ success: boolean; correct?: boolean; correctAnswer?: number; error?: string,newScore?:number }> {
   const repo = await MongoRepository.create(DB_NAME);
   const { ObjectId } = await import("mongodb");
 
@@ -339,8 +371,7 @@ export async function submitAnswer(
   if (!participant) {
     return { success: false, error: "Participante no encontrado" };
   }
-
-  const newScore = participant.score + (isCorrect ? 1 : 0);
+  const newScore = (participant.score + ((isCorrect ? 1 + Math.abs(Math.round(1-(timeMs/10000))): 0)));
   const isLastQuestion = questionIndex === session.totalQuestions - 1;
 
   await repo.updateOne(
@@ -385,7 +416,7 @@ export async function submitAnswer(
     }
   }
 
-  return { success: true, correct: isCorrect, correctAnswer: question.answer };
+  return { success: true, correct: isCorrect, correctAnswer: question.answer,newScore:newScore };
 }
 
 /**
@@ -440,6 +471,29 @@ export async function clearPlayerCookie(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete("quiz_player");
 }
+
+/*
+* Saca al jugador de la sesión del quiz actual
+*/
+export async function outQuiz() {
+  const player = await getPlayerCookie();
+  if (!player) return;
+  const repo = await MongoRepository.create(DB_NAME);
+  const { ObjectId } = await import("mongodb");
+  await repo.updateOne('quiz_sessions',{_id:new ObjectId(player.sessionId)},{
+    $pull:{
+      participants:{
+
+        
+        username:player.username
+      }
+      
+    } as UpdateFilter<Document>
+  })
+  clearPlayerCookie();
+
+}
+
 
 type SessionLeaderboard = {
   sessionId: string;

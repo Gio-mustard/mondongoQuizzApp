@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Button } from "./buttons";
+import { clearPlayerCookie, outQuiz } from "../actions/quiz";
 
 interface LobbyPhaseProps {
   quizName: string;
@@ -80,7 +81,10 @@ export default function LobbyPhase({ quizName, username, participants }: LobbyPh
             <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Jugadores</span>
           </div>
         </div>
-          <Button className="px-6 py-2" onClick={()=>router.push('/')}>
+          <Button className="px-6 py-2 z-10" onClick={()=>{
+            outQuiz()
+            router.push('/')
+            }}>
             Salir
           </Button>
           
