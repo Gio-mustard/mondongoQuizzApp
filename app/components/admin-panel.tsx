@@ -47,6 +47,11 @@ function Quiz({ quiz, handleDeleteQuiz }: { quiz: QuizItem, handleDeleteQuiz: (q
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
+  const handleCopyUrl = () => {
+    navigator.clipboard.writeText(window.location.origin +"?code="+ quiz.code.toString());
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }
 
   return (
     <div
@@ -68,6 +73,21 @@ function Quiz({ quiz, handleDeleteQuiz }: { quiz: QuizItem, handleDeleteQuiz: (q
                 >
                   <CopyIcon />
                   {quiz.code}
+                </span>
+                <span className={`absolute -top-8 left-1/2 -translate-x-1/2 bg-foreground text-white text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap pointer-events-none transition-opacity duration-300 ${copied ? 'opacity-100' : 'opacity-0'}`}>
+                  ✓ Código copiado
+                </span>
+              </span>
+            </p>
+            <p>
+              <span className="font-semibold">URL con Código de Ingreso:</span>{' '}
+              <span className="relative inline-block">
+                <span
+                  onClick={handleCopyUrl}
+                  className="bg-gray-100 flex w-fit gap-2 items-center justify-center px-3 py-1 font-mono text-[#4CAF50] font-bold hover:bg-accent hover:cursor-pointer transition-colors text-sm rounded-full"
+                >
+                  <CopyIcon />
+                  {"https://...?"+quiz.code}
                 </span>
                 <span className={`absolute -top-8 left-1/2 -translate-x-1/2 bg-foreground text-white text-xs font-semibold px-3 py-1 rounded-full whitespace-nowrap pointer-events-none transition-opacity duration-300 ${copied ? 'opacity-100' : 'opacity-0'}`}>
                   ✓ Código copiado
