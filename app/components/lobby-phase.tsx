@@ -23,7 +23,7 @@ export default function LobbyPhase({ quizName, username, participants }: LobbyPh
       {/* Header */}
       <div className="text-center pt-2">
         <h1 className="font-black text-2xl text-accent">{quizName}</h1>
-        <p className="font-bold text-lg text-foreground mt-1">¡Ya estás dentro.</p>
+        <p className="font-bold text-lg text-foreground mt-1">¡Ya estás dentro!</p>
       </div>
 
       {/* Player grid */}
@@ -53,7 +53,7 @@ export default function LobbyPhase({ quizName, username, participants }: LobbyPh
 
       {/* Bottom — waiting indicator */}
       <div className="flex flex-col items-center gap-4 pb-4">
-        <p className="text-secondary text-sm font-semibold">Waiting for host...</p>
+        <p className="text-secondary text-sm font-semibold">Esperando al anfitrión...</p>
 
         {/* Circular counter with pulse */}
         <div className="relative flex items-center justify-center w-24 h-24">
@@ -77,11 +77,11 @@ export default function LobbyPhase({ quizName, username, participants }: LobbyPh
           {/* Inner white circle + count */}
           <div className="relative z-10 w-16 h-16 rounded-full bg-white flex flex-col items-center justify-center shadow-sm">
             <span className="font-black text-2xl text-accent leading-none">{count}</span>
-            <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Players</span>
+            <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">Jugadores</span>
           </div>
         </div>
           <Button className="px-6 py-2" onClick={()=>router.push('/')}>
-            exit
+            Salir
           </Button>
           
       </div>

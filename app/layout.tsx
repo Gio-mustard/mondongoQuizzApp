@@ -13,8 +13,8 @@ const outfit = Outfit({
 
 
 export const metadata: Metadata = {
-  title: "Mondongo app",
-  description: "No hay descripcion, nomas ten fe y abrela",
+  title: "Mongo quiz app",
+  description: "No hay descripción, nomás ten fe y ábrela",
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="es"
       className={`${outfit.variable} h-full antialiased`}
     >
       <body className="w-full h-full bg-background flex flex-col justify-stretch max-w-screen">

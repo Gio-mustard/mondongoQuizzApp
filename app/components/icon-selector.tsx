@@ -139,7 +139,7 @@ export default function IconSelector() {
     <Drawer.Root open={open} onOpenChange={setOpen}>
       <div className="flex flex-col items-center gap-4 w-full max-w-sm">
         <span className="text-xs text-slate-500 uppercase tracking-[0.24em]">
-          Choose your avatar
+          Elige tu avatar
         </span>
 
         {/* First 5 always visible */}
@@ -157,7 +157,7 @@ export default function IconSelector() {
               <span className="text-base relative flex cursor-pointer items-center justify-center rounded-full border-2 bg-white  transition-all duration-200 h-14 w-14">{selectedItem.icon}</span>
               
             )}
-            Show more
+            Mostrar más
             <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
@@ -172,7 +172,7 @@ export default function IconSelector() {
 
           <div className="flex items-center justify-between mb-4">
             <Drawer.Title className="font-bold text-accent text-base">
-              Choose your avatar
+              Elige tu avatar
             </Drawer.Title>
             <Drawer.Close asChild>
               <button

@@ -1,8 +1,9 @@
 'use client';
 
 import type { SafeQuestion } from '@/app/types';
+import { MAX_SECONDS_PER_QUESTION } from '../constants';
 
-const MAX_SECONDS_PER_QUESTION = 60;
+
 const OPTION_COLORS = [
   { bg: 'bg-red-500', hover: 'hover:bg-red-600' },
   { bg: 'bg-blue-500', hover: 'hover:bg-blue-600' },
@@ -45,7 +46,6 @@ export default function GamePhase({
 
   return (
     <main className="flex flex-col p-6 md:p-8 flex-1">
-      {/* Header */}
       <section className="flex justify-between items-center mb-6">
         <span className="text-sm text-gray-500 font-medium">
           Pregunta {currentIndex + 1}/{questions.length}
@@ -75,7 +75,6 @@ export default function GamePhase({
         </div>
       </section>
 
-      {/* Progress bar */}
       <div className="w-full bg-gray-200 rounded-full h-1.5 mb-8">
         <div
           className="bg-accent h-1.5 rounded-full transition-all duration-300"
@@ -83,12 +82,10 @@ export default function GamePhase({
         />
       </div>
 
-      {/* Question */}
       <h1 className="font-bold text-2xl md:text-3xl text-foreground mb-8">
         {question.title}
       </h1>
 
-      {/* Options */}
       <div className={`grid gap-4 flex-1 ${question.type === 'true-false' ? 'grid-cols-2' : 'grid-cols-1 md:grid-cols-2'}`}>
         {question.options.map((option, i) => {
           const colors = OPTION_COLORS[i % OPTION_COLORS.length];
@@ -119,7 +116,6 @@ export default function GamePhase({
         })}
       </div>
 
-      {/* Feedback */}
       {answerResult && (
         <div className={`mt-6 text-center text-lg font-bold ${answerResult.correct ? 'text-green-600' : 'text-red-600'}`}>
           {selectedOption === -1

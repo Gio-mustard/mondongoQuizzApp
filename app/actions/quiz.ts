@@ -54,21 +54,33 @@ export async function deleteQuiz(password: string, quizId: string): Promise<{ su
 /**
  * Retorna la lista completa de quizzes registrados en la base de datos.
  */
-export async function getQuizzes(password: string): Promise<(Pick<Quiz, '_id' | 'name' | 'slug' | 'code' | 'active' | 'createdAt'> & { questionsCount: number })[]> {
+export async function getQuizzes(password: string): Promise<(Pick<Quiz, '_id' | 'name' | 'slug' | 'code' | 'active' | 'createdAt'> & { questionsCount: number; sessions: { _id: string; status: string; participantCount: number; createdAt: Date }[] })[]> {
   await assertAdmin(password);
 
   const repo = await MongoRepository.create(DB_NAME);
   const quizzes = await repo.find("quizzes", {});
+  const allSessions = await repo.find("quiz_sessions", {});
 
-  return quizzes.map(q => ({
-    _id: q._id.toString(),
-    name: q.name,
-    slug: q.slug,
-    code: q.code,
-    questionsCount: q.questions?.length ?? 0,
-    active: q.active,
-    createdAt: q.createdAt,
-  }));
+
+  return quizzes.map(q => {
+    const quizSessions = allSessions.filter(s => s.quizId === q._id.toString()).map(s => ({
+      _id: s._id.toString(),
+      status: s.status as string,
+      participantCount: s.participants?.length ?? 0,
+      createdAt: s.createdAt as Date,
+    }));
+
+    return {
+      _id: q._id.toString(),
+      name: q.name,
+      slug: q.slug,
+      code: q.code,
+      questionsCount: q.questions?.length ?? 0,
+      active: q.active,
+      createdAt: q.createdAt,
+      sessions: quizSessions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    };
+  });
 }
 
 /**
@@ -412,4 +424,92 @@ export async function getPlayerCookie(): Promise<{ sessionId: string; username: 
 export async function clearPlayerCookie(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.delete("quiz_player");
+}
+
+type SessionLeaderboard = {
+  sessionId: string;
+  status: QuizSession['status'];
+  totalQuestions: number;
+  quizName: string;
+  quizSlug: string;
+  duration: number | null;
+  participants: (Pick<Participant, 'username' | 'icon' | 'score' | 'finished'> & { totalAnswered: number })[];
+};
+
+/**
+ * Retorna la sesión más reciente (por createdAt) asociada a un slug de quiz dado,
+ * junto con su leaderboard ordenado por score descendente.
+ */
+export async function getLatestSessionBySlug(
+  password: string,
+  slug: string
+): Promise<SessionLeaderboard | null> {
+  await assertAdmin(password);
+
+  const repo = await MongoRepository.create(DB_NAME);
+  const sessions = await repo.find("quiz_sessions", { quizSlug: slug });
+
+  if (!sessions.length) return null;
+
+  sessions.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+  const session = sessions[0];
+
+  const participants = (session.participants as Participant[])
+    .map((p: Participant) => ({
+      username: p.username,
+      icon: p.icon,
+      score: p.score,
+      finished: p.finished,
+      totalAnswered: p.answers?.length ?? 0,
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  return {
+    sessionId: session._id.toString(),
+    status: session.status as QuizSession["status"],
+    totalQuestions: session.totalQuestions,
+    quizName: session.quizName,
+    quizSlug: session.quizSlug,
+    duration: session.duration,
+    participants,
+  };
+}
+
+/**
+ * Retorna una sesión específica por su ID con el leaderboard ordenado por score descendente.
+ * Requiere autenticación de administrador.
+ */
+export async function getSessionById(
+  password: string,
+  sessionId: string
+): Promise<SessionLeaderboard | null> {
+  await assertAdmin(password);
+
+  const repo = await MongoRepository.create(DB_NAME);
+  const { ObjectId } = await import("mongodb");
+
+  const session = await repo.findOne("quiz_sessions", { _id: new ObjectId(sessionId) });
+  if (!session) return null;
+
+  const participants = (session.participants as Participant[])
+    .map((p: Participant) => ({
+      username: p.username,
+      icon: p.icon,
+      score: p.score,
+      finished: p.finished,
+      totalAnswered: p.answers?.length ?? 0,
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  return {
+    sessionId: session._id.toString(),
+    status: session.status as QuizSession["status"],
+    totalQuestions: session.totalQuestions,
+    quizName: session.quizName,
+    quizSlug: session.quizSlug,
+    duration: session.duration,
+    participants,
+  };
 }

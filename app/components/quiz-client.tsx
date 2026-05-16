@@ -7,8 +7,9 @@ import { useRouter } from 'next/navigation';
 import LobbyPhase from './lobby-phase';
 import GamePhase from './game-phase';
 import ResultsPhase from './results-phase';
+import { MAX_SECONDS_PER_QUESTION } from '../constants';
 
-const MAX_SECONDS_PER_QUESTION = 60;
+
 
 interface QuizClientProps {
   sessionId: string;
@@ -36,10 +37,8 @@ export default function QuizClient({ sessionId, username, icon, initialStatus, q
   const router = useRouter();
   const [phase, setPhase] = useState<GamePhaseType>(initialStatus === 'in_progress' ? 'game' : 'lobby');
 
-  // Lobby
   const [participants, setParticipants] = useState<{ username: string; icon: string }[]>([]);
 
-  // Game
   const [questions, setQuestions] = useState<SafeQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [timeLeft, setTimeLeft] = useState(MAX_SECONDS_PER_QUESTION);
@@ -49,11 +48,9 @@ export default function QuizClient({ sessionId, username, icon, initialStatus, q
   const [questionStartTime, setQuestionStartTime] = useState(Date.now());
   const [score, setScore] = useState(0);
 
-  // Results
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [sessionStatus, setSessionStatus] = useState(initialStatus);
 
-  /** Polling en lobby: detecta cuando el admin inicia el quiz y carga las preguntas. */
   useEffect(() => {
     if (phase !== 'lobby') return;
 
@@ -79,7 +76,6 @@ export default function QuizClient({ sessionId, username, icon, initialStatus, q
     return () => clearInterval(interval);
   }, [phase, sessionId]);
 
-  /** Carga las preguntas cuando la fase cambia a 'game' sin preguntas en estado. */
   useEffect(() => {
     if (phase === 'game' && questions.length === 0) {
       getSessionQuestions(sessionId).then(qs => {
@@ -91,42 +87,16 @@ export default function QuizClient({ sessionId, username, icon, initialStatus, q
     }
   }, [phase, questions.length, sessionId]);
 
-  /** Timer de cuenta regresiva por pregunta. Al llegar a cero, auto-envía la respuesta con índice -1. */
   useEffect(() => {
     if (phase !== 'game' || selectedOption !== null) return;
 
     const interval = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          handleSubmit(-1);
-          return 0;
-        }
-        return prev - 1;
-      });
+      setTimeLeft(prev => (prev <= 1 ? 0 : prev - 1));
     }, 1000);
 
     return () => clearInterval(interval);
   }, [phase, currentIndex, selectedOption]);
 
-  /** Polling en results: actualiza el leaderboard cada 3 segundos mientras otros jugadores terminan. */
-  useEffect(() => {
-    if (phase !== 'results') return;
-
-    const poll = async () => {
-      const data = await getLeaderboard(sessionId);
-      if (data) {
-        setLeaderboard(data.participants);
-        setSessionStatus(data.status);
-      }
-    };
-
-    poll();
-    const interval = setInterval(poll, 3000);
-    return () => clearInterval(interval);
-  }, [phase, sessionId]);
-
-  /** Envía la respuesta seleccionada al servidor y avanza a la siguiente pregunta o a resultados. */
   const handleSubmit = useCallback(async (optionIndex: number) => {
     if (isSubmitting) return;
     setIsSubmitting(true);
@@ -156,7 +126,28 @@ export default function QuizClient({ sessionId, username, icon, initialStatus, q
     }
   }, [isSubmitting, questionStartTime, sessionId, username, currentIndex, questions.length]);
 
-  /** Limpia la cookie del jugador y redirige al inicio. */
+  useEffect(() => {
+    if (phase === 'game' && timeLeft === 0 && selectedOption === null) {
+      handleSubmit(-1);
+    }
+  }, [phase, timeLeft, selectedOption, handleSubmit]);
+
+  useEffect(() => {
+    if (phase !== 'results') return;
+
+    const poll = async () => {
+      const data = await getLeaderboard(sessionId);
+      if (data) {
+        setLeaderboard(data.participants);
+        setSessionStatus(data.status);
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, 3000);
+    return () => clearInterval(interval);
+  }, [phase, sessionId]);
+
   const handleGoHome = async () => {
     await clearPlayerCookie();
     router.push('/');

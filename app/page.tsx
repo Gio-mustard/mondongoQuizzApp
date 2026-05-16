@@ -42,7 +42,7 @@ export default async function Home({searchParams}:{
       action={logginQuiz}
       className="p-8 gap-4 flex flex-col justify-center items-center flex-1"
     >
-      <h1 className="font-bold mb-8 text-accent text-2xl">Mondongo App</h1>
+      <h1 className="font-bold mb-8 text-accent text-2xl">Mondongo Quiz App</h1>
 
       {error && (
         <div className="w-full max-w-sm bg-red-50 border border-red-200 text-red-600 text-sm font-medium rounded-2xl px-4 py-3 text-center">

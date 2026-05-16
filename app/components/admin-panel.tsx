@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAdminAuth } from '@/app/context/adminAuth';
 import { createQuiz, deleteQuiz, getQuizzes, getActiveSessions, startSession } from '@/app/actions/quiz';
 import type { Question } from '@/app/types';
 import { Button } from './buttons';
+import { Drawer } from 'vaul';
 
 interface QuizItem {
   _id: string;
@@ -13,6 +15,7 @@ interface QuizItem {
   code: number;
   questionsCount: number;
   active: boolean;
+  sessions: { _id: string; status: string; participantCount: number; createdAt: Date }[];
 }
 
 interface SessionItem {
@@ -27,13 +30,14 @@ interface SessionItem {
 }
 function CopyIcon() {
   return (
-    <svg id="copy-icon" className='h-5 w-5 fill-[#4CAF50]' viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" data-name="copy-icon">
+    <svg id="copy-icon" className='h-4 w-4 fill-[#4CAF50]' viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" data-name="copy-icon">
       <path d="m13 20a5.006 5.006 0 0 0 5-5v-8.757a3.972 3.972 0 0 0 -1.172-2.829l-2.242-2.242a3.972 3.972 0 0 0 -2.829-1.172h-4.757a5.006 5.006 0 0 0 -5 5v10a5.006 5.006 0 0 0 5 5zm-9-5v-10a3 3 0 0 1 3-3s4.919.014 5 .024v1.976a2 2 0 0 0 2 2h1.976c.01.081.024 9 .024 9a3 3 0 0 1 -3 3h-6a3 3 0 0 1 -3-3zm18-7v11a5.006 5.006 0 0 1 -5 5h-9a1 1 0 0 1 0-2h9a3 3 0 0 0 3-3v-11a1 1 0 0 1 2 0z" />
     </svg>
   )
 }
 function Quiz({ quiz, handleDeleteQuiz }: { quiz: QuizItem, handleDeleteQuiz: (quiz_id: string) => void }) {
   const [copied, setCopied] = useState(false);
+  const router = useRouter();
 
   const handleCopy = () => {
     navigator.clipboard.writeText(quiz.code.toString());
@@ -57,7 +61,7 @@ function Quiz({ quiz, handleDeleteQuiz }: { quiz: QuizItem, handleDeleteQuiz: (q
               <span className="relative inline-block">
                 <span
                   onClick={handleCopy}
-                  className="bg-gray-100 flex w-fit gap-2 items-center justify-center px-3 py-1 rounded font-mono text-[#4CAF50] font-bold text-lg hover:bg-accent hover:cursor-pointer transition-colors"
+                  className="bg-gray-100 flex w-fit gap-2 items-center justify-center px-3 py-1 font-mono text-[#4CAF50] font-bold hover:bg-accent hover:cursor-pointer transition-colors text-sm rounded-full"
                 >
                   <CopyIcon />
                   {quiz.code}
@@ -70,14 +74,93 @@ function Quiz({ quiz, handleDeleteQuiz }: { quiz: QuizItem, handleDeleteQuiz: (q
             <p>
               <span className="font-semibold">Preguntas:</span> {quiz.questionsCount}
             </p>
+            <p>
+              <span className="font-semibold">Sesiones totales:</span> {quiz.sessions.length}
+            </p>
           </div>
         </div>
-        <button
-          onClick={() => handleDeleteQuiz(quiz._id)}
-          className="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200"
-        >
-          Eliminar
-        </button>
+        <div className="flex items-center gap-2">
+          <Drawer.Root>
+            <Drawer.Trigger asChild>
+              <Button
+                className="bg-secondary hover:bg-accent text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 text-sm"
+              >
+                Resultados
+              </Button>
+            </Drawer.Trigger>
+            <Drawer.Portal>
+              <Drawer.Overlay className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40" />
+              <Drawer.Content className="fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-background rounded-t-3xl px-6 pt-4 pb-10 max-h-[80vh] outline-none">
+                <Drawer.Handle className="mx-auto w-10 h-1 bg-gray-300 rounded-full mb-5" />
+                <div className="flex items-center justify-between mb-4">
+                  <Drawer.Title className="font-bold text-foreground text-base">
+                    Sesiones de {quiz.name}
+                  </Drawer.Title>
+                  <Drawer.Close asChild>
+                    <button
+                      type="button"
+                      className="text-gray-400 hover:text-foreground transition-colors text-lg leading-none"
+                    >
+                      ✕
+                    </button>
+                  </Drawer.Close>
+                </div>
+                <div className="overflow-y-auto flex-1 pb-4">
+                  {quiz.sessions.length === 0 ? (
+                    <p className="text-gray-500 text-center py-4 text-sm">No hay sesiones para este quiz aún.</p>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      <Button
+                        onClick={() => router.push(`/admin/${quiz.slug}`)}
+                        className="flex items-center justify-between bg-main/10 border-2 border-main rounded-xl p-4 text-left hover:bg-main/20 transition-colors"
+                      >
+                        <div>
+                          <p className="font-bold text-accent">Última sesión</p>
+                          <p className="text-sm text-gray-600">Ver la sesión más reciente</p>
+                        </div>
+                        <span className="text-2xl text-accent">→</span>
+                      </Button>
+                      
+                      <div className="h-px bg-gray-200 my-2" />
+                      
+                      {quiz.sessions.map((session, i) => (
+                        <Button
+                          key={session._id}
+                          onClick={() => router.push(`/admin/${quiz.slug}?id=${session._id}`)}
+                          className="flex items-center justify-between bg-white border border-gray-200 rounded-xl p-4 text-left hover:border-secondary transition-colors hover:text-accent"
+                        >
+                          <div>
+                            <p className="font-semibold text-foreground">
+                              Sesión #{quiz.sessions.length - i}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                              {new Date(session.createdAt).toLocaleString()} • {session.participantCount} jugadores
+                            </p>
+                            <span className={`inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-bold ${
+                              session.status === 'in_progress' ? 'bg-amber-100 text-amber-800' :
+                              session.status === 'finished' ? 'bg-green-100 text-green-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {session.status === 'in_progress' ? 'EN PROGRESO' : 
+                               session.status === 'finished' ? 'FINALIZADA' : 'LOBBY'}
+                            </span>
+                          </div>
+                          <span className="text-inherit ">→</span>
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Drawer.Content>
+            </Drawer.Portal>
+          </Drawer.Root>
+          <Button
+            onClick={() => handleDeleteQuiz(quiz._id)}
+            className="bg-red-500 text-sm hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200"
+          >
+            Eliminar
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -89,6 +172,8 @@ function Quiz({ quiz, handleDeleteQuiz }: { quiz: QuizItem, handleDeleteQuiz: (q
  * ver la lista de quizzes existentes y gestionar sesiones activas.
  */
 export default function AdminPanel() {
+  const router = useRouter();
+
   const { logout, password } = useAdminAuth();
   const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
   const [sessions, setSessions] = useState<SessionItem[]>([]);
@@ -260,7 +345,7 @@ export default function AdminPanel() {
           </div>
           <button
             onClick={logout}
-            className="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-full transition-colors duration-200"
+            className="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-full transition-colors duration-200 text-nowrap"
           >
             Cerrar Sesión
           </button>
@@ -311,14 +396,28 @@ export default function AdminPanel() {
                         ))}
                       </div>
                     </div>
-                    {session.status === 'lobby' && (
-                      <button
-                        onClick={() => handleStartSession(session._id)}
-                        className="bg-[#4CAF50] hover:bg-[#45a049] text-white font-bold py-3 px-8 rounded-lg transition-colors duration-200 whitespace-nowrap"
-                      >
-                        🚀 Iniciar Quiz
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {session.status === 'in_progress' && (
+                        <button
+                          onClick={() => {
+                            console.log(session)
+                            
+                            router.push(`/admin/${session.quizSlug}`);
+                          }}
+                          className="bg-secondary hover:bg-accent text-white font-bold py-2 px-4 rounded-lg transition-colors duration-200 text-sm whitespace-nowrap"
+                        >
+                          Ver en vivo
+                        </button>
+                      )}
+                      {session.status === 'lobby' && (
+                        <button
+                          onClick={() => handleStartSession(session._id)}
+                          className="bg-[#4CAF50] hover:bg-[#45a049] text-white font-bold py-3 px-8 rounded-lg transition-colors duration-200 whitespace-nowrap"
+                        >
+                          Iniciar Quiz
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
