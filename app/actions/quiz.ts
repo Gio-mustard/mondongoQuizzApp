@@ -39,6 +39,19 @@ export async function createQuiz(password: string, name: string, questions: Ques
 }
 
 /**
+ * Crea un quiz a partir de una cadena JSON, validando su estructura.
+ */
+export async function createQuizFromJson(password: string, jsonString: string): Promise<{ success: boolean; code?: number; error?: string }> {
+  try {
+    const { validateQuizJson } = await import('@/app/utils/quizValidator');
+    const data = validateQuizJson(jsonString);
+    return await createQuiz(password, data.name, data.questions, data.code);
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Elimina un quiz y todas sus sesiones asociadas de la base de datos.
  */
 export async function deleteQuiz(password: string, quizId: string): Promise<{ success: boolean }> {

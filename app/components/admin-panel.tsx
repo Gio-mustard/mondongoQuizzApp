@@ -3,11 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminAuth } from '@/app/context/adminAuth';
-import { createQuiz, deleteQuiz, getQuizzes, getActiveSessions, startSession } from '@/app/actions/quiz';
+import { createQuiz, deleteQuiz, getQuizzes, getActiveSessions, startSession, createQuizFromJson } from '@/app/actions/quiz';
 import type { Question } from '@/app/types';
 import { Button } from './buttons';
 import { Drawer } from 'vaul';
 import Input from './input';
+import JsonTextarea from './json-textarea';
+
 
 interface QuizItem {
   _id: string;
@@ -180,6 +182,7 @@ export default function AdminPanel() {
   const [isLoadingQuizzes, setIsLoadingQuizzes] = useState(true);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
 
+  const [creationMode, setCreationMode] = useState<'form' | 'json'>('form');
   const [formKey, setFormKey] = useState(0);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -315,6 +318,34 @@ export default function AdminPanel() {
     }
   };
 
+  const handleCreateQuizJson = async (formData: FormData) => {
+    const jsonString = formData.get('quiz-json') as string;
+    if (!jsonString?.trim()) {
+      setErrorMessage('Ingresa un JSON válido');
+      setTimeout(() => setErrorMessage(''), 3000);
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await createQuizFromJson(password, jsonString);
+      if (!result.success) {
+        setErrorMessage(result.error || 'Error al crear el quiz desde JSON');
+        setTimeout(() => setErrorMessage(''), 3000);
+        return;
+      }
+      setSuccessMessage(`✓ Quiz creado con código: ${result.code}`);
+      setFormKey(prev => prev + 1);
+      loadQuizzes();
+      setTimeout(() => setSuccessMessage(''), 5000);
+    } catch {
+      setErrorMessage('Error al crear el quiz');
+      setTimeout(() => setErrorMessage(''), 3000);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
 
   const handleDeleteQuiz = async (quizId: string) => {
     if (!confirm('¿Estás seguro de eliminar este quiz?')) return;
@@ -437,8 +468,25 @@ export default function AdminPanel() {
           {/* Create Quiz Form */}
           <div className="lg:col-span-1">
             <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8 sticky top-8">
-              <h2 className="text-2xl font-bold mb-6 text-[#1a1a1a]">Crear Nuevo Quiz</h2>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-[#1a1a1a]">Crear Nuevo Quiz</h2>
+                <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
+                  <button
+                    onClick={() => setCreationMode('form')}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${creationMode === 'form' ? 'bg-white shadow-sm font-bold text-accent' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    Formulario
+                  </button>
+                  <button
+                    onClick={() => setCreationMode('json')}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${creationMode === 'json' ? 'bg-white shadow-sm font-bold text-accent' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    JSON
+                  </button>
+                </div>
+              </div>
 
+              {creationMode === 'form' ? (
               <form key={formKey} action={handleCreateQuiz} className="space-y-5">
                 <div className='grid grid-cols-2 gap-8'>
 
@@ -568,6 +616,37 @@ export default function AdminPanel() {
                   {isSubmitting ? 'Creando...' : `Crear Quiz (${questions.length} preguntas)`}
                 </button>
               </form>
+              ) : (
+              <form key={`json-${formKey}`} action={handleCreateQuizJson} className="space-y-5">
+                <div className="w-full">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Pega el JSON del Quiz
+                  </label>
+                  <JsonTextarea 
+                    name="quiz-json"
+                    placeholder={`{
+  "name": "Mi Quiz",
+  "code": 123456,
+  "questions": [
+    {
+      "title": "¿Cuánto es 2 + 2?",
+      "type": "multiple-choice",
+      "options": ["3", "4", "5", "6"],
+      "answer": 1
+    }
+  ]
+}`}
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full bg-[#4CAF50] hover:bg-[#45a049] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 px-6 rounded-lg transition-colors duration-200"
+                >
+                  {isSubmitting ? 'Creando...' : 'Crear Quiz desde JSON'}
+                </button>
+              </form>
+              )}
             </div>
           </div>
 
