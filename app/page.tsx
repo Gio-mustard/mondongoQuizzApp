@@ -1,4 +1,4 @@
-import { Button } from "./components/buttons";
+import { SubmitButton } from "./components/submit-button";
 import IconSelector from "./components/icon-selector";
 import Input from "./components/input";
 import InteractiveCodeInput from "./components/interactive-code-input";
@@ -54,9 +54,9 @@ export default async function Home({searchParams}:{
       <Input name="username" placeholder='Tu nombre' />
       <IconSelector />
       <div className="h-full flex items-end">
-        <Button type="submit">
+        <SubmitButton loadingText="Entrando...">
           Entrar al quiz
-        </Button>
+        </SubmitButton>
       </div>
     </form>
   );
