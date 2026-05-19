@@ -1,6 +1,7 @@
 'use server'
 
-import { MongoRepository } from "@/app/utils/mongoRepository";
+import { Quizzes } from "@/app/utils/quizzes";
+import { QuizSessions } from "@/app/utils/quiz_sessions";
 import { assertAdmin } from "./auth";
 import { cookies } from "next/headers";
 import type { Question, Quiz, QuizSession, SafeQuestion, Participant, PlayerAnswer } from "@/app/types";
@@ -14,17 +15,12 @@ const DB_NAME = "mondongo";
 export async function createQuiz(password: string, name: string, questions: Question[], code: number): Promise<{ success: boolean; code: number }> {
   await assertAdmin(password);
 
-  const repo = await MongoRepository.create(DB_NAME);
+  const { db } = await Quizzes.create(DB_NAME);
 
-
-
-
-
-  const found = await repo.findOne("quizzes", { code: code });
+  const found = await db.quizzes.findOne({ code: code });
   if (found) {
     throw Error(`Ya existe un quiz con el código ${code}`)
   }
-
 
   const quiz = {
     name,
@@ -35,7 +31,7 @@ export async function createQuiz(password: string, name: string, questions: Ques
     createdAt: new Date(),
   };
 
-  await repo.insertOne("quizzes", quiz);
+  await db.quizzes.insertOne(quiz);
   return { success: true, code: code };
 }
 
@@ -45,9 +41,9 @@ export async function createQuiz(password: string, name: string, questions: Ques
 export async function checkQuizExists(codeRaw: string): Promise<boolean> {
   const code = parseInt(codeRaw.replace(/\D/g, ''), 10);
   if (isNaN(code) || code < 1) return false;
-  
-  const repo = await MongoRepository.create(DB_NAME);
-  const quiz = await repo.findOne("quizzes", { code, active: true });
+
+  const { db } = await Quizzes.create(DB_NAME);
+  const quiz = await db.quizzes.findOne({ code, active: true });
   return !!quiz;
 }
 
@@ -70,11 +66,12 @@ export async function createQuizFromJson(password: string, jsonString: string): 
 export async function deleteQuiz(password: string, quizId: string): Promise<{ success: boolean }> {
   await assertAdmin(password);
 
-  const repo = await MongoRepository.create(DB_NAME);
   const { ObjectId } = await import("mongodb");
+  const quizRepo = await Quizzes.create(DB_NAME);
+  const sessionRepo = await QuizSessions.create(DB_NAME);
 
-  await repo.deleteOne("quizzes", { _id: new ObjectId(quizId) });
-  await repo.deleteMany("quiz_sessions", { quizId });
+  await quizRepo.db.quizzes.deleteOne({ _id: new ObjectId(quizId) });
+  await sessionRepo.db.quiz_sessions.deleteMany({ quizId } as any);
 
   return { success: true };
 }
@@ -85,10 +82,11 @@ export async function deleteQuiz(password: string, quizId: string): Promise<{ su
 export async function getQuizzes(password: string): Promise<(Pick<Quiz, '_id' | 'name' | 'slug' | 'code' | 'active' | 'createdAt'> & { questionsCount: number; sessions: { _id: string; status: string; participantCount: number; createdAt: Date }[] })[]> {
   await assertAdmin(password);
 
-  const repo = await MongoRepository.create(DB_NAME);
-  const quizzes = await repo.find("quizzes", {});
-  const allSessions = await repo.find("quiz_sessions", {});
+  const quizRepo = await Quizzes.create(DB_NAME);
+  const sessionRepo = await QuizSessions.create(DB_NAME);
 
+  const quizzes = await quizRepo.db.quizzes.find({});
+  const allSessions = await sessionRepo.db.quiz_sessions.find({});
 
   return quizzes.map(q => {
     const quizSessions = allSessions.filter(s => s.quizId === q._id.toString()).map(s => ({
@@ -117,11 +115,10 @@ export async function getQuizzes(password: string): Promise<(Pick<Quiz, '_id' | 
 export async function startSession(password: string, sessionId: string): Promise<{ success: boolean }> {
   await assertAdmin(password);
 
-  const repo = await MongoRepository.create(DB_NAME);
+  const { db } = await QuizSessions.create(DB_NAME);
   const { ObjectId } = await import("mongodb");
 
-  await repo.updateOne(
-    "quiz_sessions",
+  await db.quiz_sessions.updateOne(
     { _id: new ObjectId(sessionId), status: "lobby" },
     {
       $set: {
@@ -133,30 +130,33 @@ export async function startSession(password: string, sessionId: string): Promise
 
   return { success: true };
 }
-export async function dropSession(password:string,sessionId:string):Promise<{success:boolean}>{
+
+export async function dropSession(password: string, sessionId: string): Promise<{ success: boolean }> {
   await assertAdmin(password);
-  const repo = await MongoRepository.create(DB_NAME);
+
+  const { db } = await QuizSessions.create(DB_NAME);
   const { ObjectId } = await import("mongodb");
 
-  const session = await repo.findOne('quiz_sessions',{_id: new ObjectId(sessionId)})
+  const session = await db.quiz_sessions.findOne({ _id: new ObjectId(sessionId) });
   console.log('----------si________')
   console.log(session)
-  if (!session) return {success:false}
+  if (!session) return { success: false }
 
-  await repo.deleteOne("quiz_sessions",{_id:new ObjectId(sessionId)})
+  await db.quiz_sessions.deleteOne({ _id: new ObjectId(sessionId) });
   console.log('----------se borro -------')
-  return {success:true};
+  return { success: true };
 }
+
 /**
  * Retorna todas las sesiones que están actualmente en estado "lobby" o "in_progress".
  */
 export async function getActiveSessions(password: string): Promise<(Pick<QuizSession, 'quizId' | 'quizSlug' | 'quizName' | 'status' | 'totalQuestions' | 'createdAt'> & { _id: string; participantCount: number; participants: Pick<Participant, 'username' | 'icon'>[] })[]> {
   await assertAdmin(password);
 
-  const repo = await MongoRepository.create(DB_NAME);
-  const sessions = await repo.find("quiz_sessions", {
+  const { db } = await QuizSessions.create(DB_NAME);
+  const sessions = await db.quiz_sessions.find({
     status: { $in: ["lobby", "in_progress"] }
-  });
+  } as any);
 
   return sessions.map(s => ({
     _id: s._id.toString(),
@@ -179,21 +179,22 @@ export async function getActiveSessions(password: string): Promise<(Pick<QuizSes
  * Establece una cookie httpOnly con los datos del jugador y retorna el slug del quiz.
  */
 export async function joinQuiz(code: number, username: string, icon: string): Promise<{ success: boolean; slug?: string; error?: string }> {
-  const repo = await MongoRepository.create(DB_NAME);
+  const quizRepo = await Quizzes.create(DB_NAME);
+  const sessionRepo = await QuizSessions.create(DB_NAME);
 
-  const quiz = await repo.findOne("quizzes", { code, active: true }) as (Quiz & { _id: { toString(): string } }) | null;
+  const quiz = await quizRepo.db.quizzes.findOne({ code, active: true }) as (Quiz & { _id: { toString(): string } }) | null;
   if (!quiz) {
     return { success: false, error: "No se encontró un quiz con ese código" };
   }
 
   const quizId = quiz._id.toString();
 
-  let session = await repo.findOne("quiz_sessions", {
+  let session = await sessionRepo.db.quiz_sessions.findOne({
     quizId,
     status: {
       $in: ["lobby", "in_progress"]
     }
-  }) as (QuizSession & { _id: { toString(): string } }) | null;
+  } as any) as (QuizSession & { _id: { toString(): string } }) | null;
 
   if (session) {
     const { ObjectId } = await import("mongodb");
@@ -209,18 +210,17 @@ export async function joinQuiz(code: number, username: string, icon: string): Pr
       maxAge: 60 * 60 * 2,
     });
     if (existingParticipant) {
-      await repo.updateOne(
-        "quiz_sessions",
-        { 
-          _id: new ObjectId(session._id.toString()),
-          "participants.username":existingParticipant.username
-         },
+      await sessionRepo.db.quiz_sessions.updateOne(
         {
-          $set:{
-            "participants.$.icon":icon
+          _id: new ObjectId(session._id.toString()),
+          "participants.username": existingParticipant.username
+        } as any,
+        {
+          $set: {
+            "participants.$.icon": icon
           }
-        }
-      )
+        } as any
+      );
 
       return { success: true, slug: quiz.slug };
     }
@@ -229,9 +229,8 @@ export async function joinQuiz(code: number, username: string, icon: string): Pr
       return { success: false, error: "El quiz ya está en progreso, no puedes unirte" };
     }
 
-    await repo.updateOne(
-      "quiz_sessions",
-      { _id: new ObjectId(session._id.toString()) },
+    await sessionRepo.db.quiz_sessions.updateOne(
+      { _id: new ObjectId(session._id.toString()) } as any,
       {
         $push: {
           participants: {
@@ -245,8 +244,6 @@ export async function joinQuiz(code: number, username: string, icon: string): Pr
         }
       } as any
     );
-
-
 
     return { success: true, slug: quiz.slug };
   }
@@ -273,7 +270,7 @@ export async function joinQuiz(code: number, username: string, icon: string): Pr
     createdAt: new Date(),
   };
 
-  const result = await repo.insertOne("quiz_sessions", newSession);
+  const result = await sessionRepo.db.quiz_sessions.insertOne(newSession as any);
   const sessionId = result.insertedId.toString();
 
   const cookieStore = await cookies();
@@ -290,10 +287,10 @@ export async function joinQuiz(code: number, username: string, icon: string): Pr
  * Retorna el estado actual de una sesión: su status, lista de participantes y total de preguntas.
  */
 export async function getSessionStatus(sessionId: string): Promise<{ status: QuizSession['status']; participants: Pick<Participant, 'username' | 'icon' | 'finished'>[]; totalQuestions: number } | null> {
-  const repo = await MongoRepository.create(DB_NAME);
+  const { db } = await QuizSessions.create(DB_NAME);
   const { ObjectId } = await import("mongodb");
 
-  const session = await repo.findOne("quiz_sessions", { _id: new ObjectId(sessionId) });
+  const session = await db.quiz_sessions.findOne({ _id: new ObjectId(sessionId) } as any);
   if (!session || session.status === 'finished') {
     return null;
   }
@@ -313,13 +310,14 @@ export async function getSessionStatus(sessionId: string): Promise<{ status: Qui
  * Retorna las preguntas del quiz asociado a la sesión, omitiendo la respuesta correcta de cada una.
  */
 export async function getSessionQuestions(sessionId: string): Promise<SafeQuestion[] | null> {
-  const repo = await MongoRepository.create(DB_NAME);
+  const sessionRepo = await QuizSessions.create(DB_NAME);
+  const quizRepo = await Quizzes.create(DB_NAME);
   const { ObjectId } = await import("mongodb");
 
-  const session = await repo.findOne("quiz_sessions", { _id: new ObjectId(sessionId) });
+  const session = await sessionRepo.db.quiz_sessions.findOne({ _id: new ObjectId(sessionId) } as any);
   if (!session) return null;
 
-  const quiz = await repo.findOne("quizzes", { _id: new ObjectId(session.quizId) });
+  const quiz = await quizRepo.db.quizzes.findOne({ _id: new ObjectId(session.quizId) } as any);
   if (!quiz) return null;
 
   return (quiz.questions as Question[]).map((q: Question, i: number) => ({
@@ -340,16 +338,17 @@ export async function submitAnswer(
   questionIndex: number,
   selectedOption: number,
   timeMs: number
-): Promise<{ success: boolean; correct?: boolean; correctAnswer?: number; error?: string,newScore?:number }> {
-  const repo = await MongoRepository.create(DB_NAME);
+): Promise<{ success: boolean; correct?: boolean; correctAnswer?: number; error?: string; newScore?: number }> {
+  const sessionRepo = await QuizSessions.create(DB_NAME);
+  const quizRepo = await Quizzes.create(DB_NAME);
   const { ObjectId } = await import("mongodb");
 
-  const session = await repo.findOne("quiz_sessions", { _id: new ObjectId(sessionId) });
+  const session = await sessionRepo.db.quiz_sessions.findOne({ _id: new ObjectId(sessionId) } as any);
   if (!session || session.status !== "in_progress") {
     return { success: false, error: "Sesión no válida" };
   }
 
-  const quiz = await repo.findOne("quizzes", { _id: new ObjectId(session.quizId) });
+  const quiz = await quizRepo.db.quizzes.findOne({ _id: new ObjectId(session.quizId) } as any);
   if (!quiz) {
     return { success: false, error: "Quiz no encontrado" };
   }
@@ -371,15 +370,15 @@ export async function submitAnswer(
   if (!participant) {
     return { success: false, error: "Participante no encontrado" };
   }
-  const newScore = (participant.score + ((isCorrect ? 1 + Math.abs(Math.round(1-(timeMs/10000))): 0)));
+
+  const newScore = (participant.score + ((isCorrect ? 1 + Math.abs(Math.round(1 - (timeMs / 10000))) : 0)));
   const isLastQuestion = questionIndex === session.totalQuestions - 1;
 
-  await repo.updateOne(
-    "quiz_sessions",
+  await sessionRepo.db.quiz_sessions.updateOne(
     {
       _id: new ObjectId(sessionId),
       "participants.username": username,
-    },
+    } as any,
     {
       $push: { "participants.$.answers": answer },
       $set: {
@@ -390,7 +389,7 @@ export async function submitAnswer(
   );
 
   if (isLastQuestion) {
-    const updatedSession = await repo.findOne("quiz_sessions", { _id: new ObjectId(sessionId) });
+    const updatedSession = await sessionRepo.db.quiz_sessions.findOne({ _id: new ObjectId(sessionId) } as any);
     if (updatedSession) {
       const allFinished = (updatedSession.participants as Participant[]).every(
         (p: Participant) => p.finished || p.username === username
@@ -401,32 +400,31 @@ export async function submitAnswer(
         const now = Date.now();
         const durationSeconds = Math.round((now - startedAt) / 1000);
 
-        await repo.updateOne(
-          "quiz_sessions",
-          { _id: new ObjectId(sessionId) },
+        await sessionRepo.db.quiz_sessions.updateOne(
+          { _id: new ObjectId(sessionId) } as any,
           {
             $set: {
               status: "finished",
               finishedAt: new Date(),
               duration: durationSeconds,
             }
-          }
+          } as any
         );
       }
     }
   }
 
-  return { success: true, correct: isCorrect, correctAnswer: question.answer,newScore:newScore };
+  return { success: true, correct: isCorrect, correctAnswer: question.answer, newScore: newScore };
 }
 
 /**
  * Retorna el leaderboard de una sesión: participantes ordenados por score de mayor a menor.
  */
 export async function getLeaderboard(sessionId: string): Promise<{ status: QuizSession['status']; totalQuestions: number; quizName: string; duration: number | null; participants: (Pick<Participant, 'username' | 'icon' | 'score' | 'finished'> & { totalAnswered: number })[] } | null> {
-  const repo = await MongoRepository.create(DB_NAME);
+  const { db } = await QuizSessions.create(DB_NAME);
   const { ObjectId } = await import("mongodb");
 
-  const session = await repo.findOne("quiz_sessions", { _id: new ObjectId(sessionId) });
+  const session = await db.quiz_sessions.findOne({ _id: new ObjectId(sessionId) } as any);
   if (!session) return null;
 
   const participants = (session.participants as Participant[])
@@ -478,20 +476,22 @@ export async function clearPlayerCookie(): Promise<void> {
 export async function outQuiz() {
   const player = await getPlayerCookie();
   if (!player) return;
-  const repo = await MongoRepository.create(DB_NAME);
+
+  const { db } = await QuizSessions.create(DB_NAME);
   const { ObjectId } = await import("mongodb");
-  await repo.updateOne('quiz_sessions',{_id:new ObjectId(player.sessionId)},{
-    $pull:{
-      participants:{
 
-        
-        username:player.username
+  await db.quiz_sessions.updateOne(
+    { _id: new ObjectId(player.sessionId) } as any,
+    {
+      $pull: {
+        participants: {
+          username: player.username
+        }
       }
-      
-    } as UpdateFilter<Document>
-  })
-  clearPlayerCookie();
+    } as UpdateFilter<any>
+  );
 
+  clearPlayerCookie();
 }
 
 
@@ -515,8 +515,8 @@ export async function getLatestSessionBySlug(
 ): Promise<SessionLeaderboard | null> {
   await assertAdmin(password);
 
-  const repo = await MongoRepository.create(DB_NAME);
-  const sessions = await repo.find("quiz_sessions", { quizSlug: slug });
+  const { db } = await QuizSessions.create(DB_NAME);
+  const sessions = await db.quiz_sessions.find({ quizSlug: slug } as any);
 
   if (!sessions.length) return null;
 
@@ -556,10 +556,10 @@ export async function getSessionById(
 ): Promise<SessionLeaderboard | null> {
   await assertAdmin(password);
 
-  const repo = await MongoRepository.create(DB_NAME);
+  const { db } = await QuizSessions.create(DB_NAME);
   const { ObjectId } = await import("mongodb");
 
-  const session = await repo.findOne("quiz_sessions", { _id: new ObjectId(sessionId) });
+  const session = await db.quiz_sessions.findOne({ _id: new ObjectId(sessionId) } as any);
   if (!session) return null;
 
   const participants = (session.participants as Participant[])

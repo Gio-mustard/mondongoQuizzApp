@@ -26,7 +26,7 @@ import clientPromise, { Database } from "./database";
 export class  MongoRepository<T extends Document = Document> implements Database {
     connection: Db;
 
-    private constructor(db: Db) {
+    protected constructor(db: Db) {
         this.connection = db;
     }
 
